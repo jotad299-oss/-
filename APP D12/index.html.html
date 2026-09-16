@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Coletor de Medidas - D12</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #ffffff; 
+            padding: 15px;
+            box-sizing: border-box;
+            overscroll-behavior-y: contain; 
+        }
+        .container {
+            background-color: #1e1e1e; 
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 400px; 
+            border-top: 5px solid #ff6600; 
+            box-sizing: border-box;
+        }
+        
+        .logo-container {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .logo {
+            max-width: 140px; 
+            height: auto;
+        }
+
+        h2 {
+            text-align: center;
+            color: #ffffff;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #cccccc; 
+            font-weight: bold;
+            font-size: 14px;
+        }
+        input[type="number"], input[type="text"], select, textarea {
+            width: 100%;
+            padding: 12px;
+            background-color: #2c2c2c; 
+            color: #ffffff; 
+            border: 1px solid #444; 
+            border-radius: 5px;
+            box-sizing: border-box; 
+            font-size: 16px;
+            font-family: inherit; 
+        }
+        textarea {
+            resize: vertical; 
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #ff6600; 
+        }
+        input[type="file"] {
+            width: 100%;
+            color: #ccc;
+            font-size: 14px;
+            background-color: #2c2c2c;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px dashed #666;
+            box-sizing: border-box;
+        }
+        
+        #preview-container {
+            display: none; 
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+        canvas {
+            width: 100%; 
+            max-height: 400px;
+            border-radius: 5px;
+            border: 2px solid #ff6600;
+            cursor: crosshair; 
+            touch-action: none; 
+            background-color: #000;
+        }
+        .btn-limpar {
+            background-color: #444;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            margin-top: 10px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .btn-limpar:hover {
+            background-color: #666;
+        }
+
+        button.principal {
+            width: 100%;
+            padding: 15px;
+            background-color: #ff6600; 
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.3s;
+        }
+        button.principal:hover {
+            background-color: #cc5200; 
+        }
+        
+        .instrucao-desenho {
+            font-size: 12px;
+            color: #ff6600;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="logo-container">
+        <!-- O nome da imagem deve ser exatamente o mesmo arquivo que você salvou -->
+        <img src="logo_D12.jpeg-removebg-preview (1).png" alt="Logo D12" class="logo" onerror="this.style.display='none'">
+    </div>
+
+    <h2>Registro de Medidas</h2>
+    
+    <div class="input-group">
+        <label for="cliente">Nome do Cliente ou Ambiente:</label>
+        <input type="text" id="cliente" placeholder="Ex: João - Sala">
+    </div>
+
+    <div class="input-group">
+        <label for="foto">Foto do Vão/Local:</label>
+        <input type="file" id="foto" accept="image/*" capture="environment">
+    </div>
+
+    <div id="preview-container">
+        <span class="instrucao-desenho">Passe o dedo para desenhar medidas na foto</span>
+        <canvas id="meuCanvas"></canvas>
+        <button class="btn-limpar" onclick="limparDesenho()">Desfazer Desenho</button>
+    </div>
+
+    <div class="input-group">
+        <label for="largura">Largura do Vão (mm):</label>
+        <input type="number" id="largura" placeholder="Ex: 1500">
+    </div>
+
+    <div class="input-group">
+        <label for="altura">Altura do Vão (mm):</label>
+        <input type="number" id="altura" placeholder="Ex: 1000">
+    </div>
+
+    <div class="input-group">
+        <label for="observacoes">Observações (Opcional):</label>
+        <textarea id="observacoes" rows="3" placeholder="Ex: Vidro incolor 8mm, alumínio preto..."></textarea>
+    </div>
+
+    <button class="principal" onclick="compartilharWhatsApp()" id="btn-enviar">
+        Compartilhar com Escritório
+    </button>
+</div>
+
+<script>
+    const canvas = document.getElementById('meuCanvas');
+    const ctx = canvas.getContext('2d');
+    let desenhando = false;
+    let imagemOriginal = new Image();
+
+    document.getElementById('foto').addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imagemOriginal.src = e.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    imagemOriginal.onload = function() {
+        const previewContainer = document.getElementById('preview-container');
+        previewContainer.style.display = 'flex';
+        
+        const displayWidth = canvas.clientWidth;
+        const proporcao = displayWidth / imagemOriginal.width;
+        const displayHeight = displayWidth * (imagemOriginal.height / imagemOriginal.width);
+        
+        canvas.width = displayWidth;
+        canvas.height = displayHeight;
+        
+        ctx.drawImage(imagemOriginal, 0, 0, canvas.width, canvas.height);
+        
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#ff0000'; 
+    }
+
+    function obterPosicao(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        let clientX = e.clientX;
+        let clientY = e.clientY;
+
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        }
+
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+    }
+
+    function iniciarDesenho(e) {
+        if(e.cancelable) e.preventDefault(); 
+        desenhando = true;
+        const pos = obterPosicao(e);
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+    }
+
+    function pararDesenho(e) {
+        if(e.cancelable) e.preventDefault();
+        desenhando = false;
+        ctx.beginPath(); 
+    }
+
+    function desenhar(e) {
+        if (!desenhando) return;
+        if(e.cancelable) e.preventDefault(); 
+
+        const pos = obterPosicao(e);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+    }
+
+    canvas.addEventListener('mousedown', iniciarDesenho);
+    canvas.addEventListener('mouseup', pararDesenho);
+    canvas.addEventListener('mouseleave', pararDesenho);
+    canvas.addEventListener('mousemove', desenhar);
+
+    canvas.addEventListener('touchstart', iniciarDesenho, { passive: false });
+    canvas.addEventListener('touchend', pararDesenho, { passive: false });
+    canvas.addEventListener('touchcancel', pararDesenho, { passive: false });
+    canvas.addEventListener('touchmove', desenhar, { passive: false });
+
+    function limparDesenho() {
+        if (imagemOriginal.src) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(imagemOriginal, 0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    // --- NOVA LÓGICA DE COMPARTILHAMENTO DE ARQUIVO ---
+    async function compartilharWhatsApp() {
+        const cliente = document.getElementById('cliente').value || "Não informado";
+        const largura = document.getElementById('largura').value;
+        const altura = document.getElementById('altura').value;
+        const observacoes = document.getElementById('observacoes').value;
+        const btnEnviar = document.getElementById('btn-enviar');
+
+        if (!largura || !altura) {
+            alert("Por favor, preencha a largura e a altura antes de compartilhar.");
+            return;
+        }
+
+        // Monta o texto
+        let texto = `*Registro de Medidas - Esquadrias*\n\n`;
+        texto += `*Cliente/Ambiente:* ${cliente}\n`;
+        texto += `*Largura:* ${largura} mm\n`;
+        texto += `*Altura:* ${altura} mm\n`;
+        
+        if (observacoes.trim() !== "") {
+            texto += `*Observações:* ${observacoes}\n`;
+        }
+
+        // Se o usuário tiver tirado uma foto, tenta enviar a foto junto
+        if (imagemOriginal.src) {
+            btnEnviar.innerText = "Processando imagem...";
+            
+            // Converte o canvas para um arquivo de imagem
+            canvas.toBlob(async function(blob) {
+                const arquivo = new File([blob], "medidas.png", { type: "image/png" });
+                
+                // Verifica se o celular suporta compartilhar arquivos
+                if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+                    try {
+                        await navigator.share({
+                            title: 'Medidas Esquadrias',
+                            text: texto,
+                            files: [arquivo]
+                        });
+                        btnEnviar.innerText = "Compartilhar com Escritório";
+                    } catch (error) {
+                        console.log('Compartilhamento cancelado ou falhou', error);
+                        btnEnviar.innerText = "Compartilhar com Escritório";
+                    }
+                } else {
+                    // Se o celular não suportar (ex: iPhone muito antigo), cai no método antigo
+                    compartilharSomenteTexto(texto);
+                    btnEnviar.innerText = "Compartilhar com Escritório";
+                }
+            }, 'image/png');
+        } else {
+            // Se não tiver foto, manda só o texto do jeito antigo
+            compartilharSomenteTexto(texto);
+        }
+    }
+
+    // Função reserva (Método antigo) caso a foto não seja suportada ou não tenha foto
+    function compartilharSomenteTexto(textoFormatado) {
+        // Converte as quebras de linha para o formato da URL do WhatsApp
+        const textoURL = encodeURIComponent(textoFormatado);
+        const numeroEscritorio = "554299630700"; 
+        const urlWhatsApp = `https://api.whatsapp.com/send?phone=${numeroEscritorio}&text=${textoURL}`;
+        window.open(urlWhatsApp, '_blank');
+    }
+</script>
+
+</body>
+</html>
